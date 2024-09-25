@@ -1,0 +1,18 @@
+Package: MetCell
+Type: Package
+Title: A end-to-end data processing for single-cell metabolomics based
+        on IM-resolved mass cytometry
+Version: 1.0.18
+Date: 2024-09-18
+Author: Mingdu Luo, Yandong Yin
+Encoding: UTF-8
+Maintainer: Zhulab <zhulab@sioc.ac.cn>
+Description: More about what it does (maybe more than one line)
+Imports: SpectraTools (>= 0.2.8), BiocParallel, opentimsr, ggpmisc,
+        smoother, Rcpp, splus2R, fastmatch, mzR, data.table, RcppProgress, collapse, pbapply, Rdisop
+LinkingTo: Rcpp, RcppProgress
+License: CC BY-NC-ND 4.0
+RoxygenNote: 7.3.1
+Suggests: testthat (>= 3.0.0)
+NeedsCompilation: yes
+Packaged: 2023-12-15 03:22:54 UTC; dodo
