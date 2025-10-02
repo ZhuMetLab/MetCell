@@ -11,7 +11,8 @@ DiscoverSCEventsParam(
   mobility_range = 0.015,
   intensity_abs_threshold_upper = NULL,
   intensity_abs_threshold_lower = NULL,
-  marker_eic_peak_span = 5
+  marker_eic_peak_span = 5,
+  select_true_cell = TRUE
 )
 }
 \arguments{
