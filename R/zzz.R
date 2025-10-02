@@ -16,6 +16,7 @@
 #' @import SpectraTools opentimsr BiocParallel ggpmisc smoother Rcpp splus2R fastmatch mzR parallel dplyr data.table RcppProgress collapse
 #' @importFrom data.table ":="
 #' @importFrom Rcpp evalCpp
+#' @importFrom plyr rbind.fill
 #' @useDynLib MetCell
 #' @name MetCell
 NULL
@@ -29,10 +30,10 @@ NULL
                         "\n  SpectraTools v", packageVersion("SpectraTools"),
                         "\n  OpenTIMSR v", packageVersion("opentimsr"),
                         "\n================================================\n",
-                        "Version 1.0.18 (20230918) \n",
-                        "o Package released \n",
-                        "o Metabolite library contained 135638 compounds",
-                        "\n================================================\n")
+                        "Version 1.0.22 (20250712) \n",
+                        "o Correcte the bulk name of sphingomyelin lipids \n",
+                        "o Add the function for blank substrate \n",
+                        "================================================\n")
 }
 
 .onLoad <- function(libname, pkgname) {

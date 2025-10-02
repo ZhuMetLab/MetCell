@@ -213,6 +213,33 @@ setMethod(
 
     object@tmp_data_files$eim_peaks <- files
     ############################################################################
+    #### blank substrate if the option is on (20250712)  #######################
+    if(!is.null(param@blank_peak_file)){
+
+      message("Substrating peaks in the blank sample...")
+      csf_raw <- readRDS(object@tmp_data_files$eim_peaks)
+      csf <- csf_raw
+      bsf <- readRDS(param@blank_peak_file)
+      csf$cell_intensity_csf <- csf$int
+      bsf$cell_intensity_bsf <- bsf$int
+      bsf$cell_intensity_bsf <- bsf$int
+
+      res <- .match_res(table_1 = csf,
+                       table_2 = bsf,
+                       mz_tol_ppm = param@mz_tol_match_blank,
+                       res_define_at = param@res_define_at,
+                       ccs_tol = param@ccs_tol_match_blank)
+
+      res_with_match <- res$match_res
+      colnames(res_with_match)[c(8, 9)] <- c('csf_intensity', 'bsf_intensity')
+      res_with_match$intensity_ratio <- res_with_match$csf_intensity / res_with_match$bsf_intensity
+      res_with_match_filter <- res_with_match[which(res_with_match$intensity_ratio < param@intensity_threshold), ]
+
+      csf_filter <- csf_raw[!csf_raw$name %in% res_with_match_filter$name, ]
+      saveRDS(csf_filter, file = object@tmp_data_files$eim_peaks, version = 2)
+    }
+
+    ############################################################################
 
     setwd(wd0)
     return(object)
@@ -277,8 +304,10 @@ setMethod(
     }
     library <- param@library
     # load the library
+    temp_type <- class(object@experiment)[1]
+
     if (is.null(library)) {
-      lib_data <- readRDS(system.file(package = pkg, 'library', 'ms1info'))
+      lib_data <- readRDS(system.file(package = pkg, 'library', paste0("ms1info", temp_type)))
     }else {
       lib_data <- read.csv(lib,
                            stringsAsFactors = FALSE)

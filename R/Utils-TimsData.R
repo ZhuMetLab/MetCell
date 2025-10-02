@@ -666,8 +666,8 @@
     return(temp)
   }
 
-  # to be done: judge the number of ions with none-zero intensity 
-  
+  # to be done: judge the number of ions with none-zero intensity
+
   frame$mz_diff <- mz_diff[is_keep]
   if (nrow(frame) == 0) {
     return(NULL)
@@ -695,42 +695,42 @@
 # get_eims3 <- function(frame_list, scan_mobility, mz, mz_tol, mobility, mobility_tol) {
 #   target_mobility <- scan_mobility[abs(scan_mobility - mobility) <= mobility_tol]
 #   target_scans <- as.numeric(names(target_mobility))
-#   
+#
 #   temp <- rep(0, length(target_mobility))
 #   names(temp) <- target_scans
-#   
+#
 #   eims <- lapply(frame_list, function(frame) {
 #     get_frame_data3(frame, target_scans, temp, mz, mz_tol)
 #   })
-#   
+#
 #   if (all(sapply(eims, is.null))) {
 #     return(NULL)
 #   }
-#   
+#
 #   res <- eims[[1]]
 #   res$k0 <- target_mobility
 #   attr(res, "mz") <- res$mz[1]
 #   return(res)
 # }
-# 
+#
 # get_frame_data3 <- function(frame, target_scans, temp, mz, mz_tol) {
 #   mz_diff <- abs(frame$mz - mz)
 #   is_keep <- (mz_diff <= mz_tol) & (frame$scan %in% target_scans)
 #   frame <- frame[is_keep, , drop = FALSE]
-#   
+#
 #   if (nrow(frame) == 0 | all(frame$intensity == 0)) {
 #     temp$mz <- mz
 #     return(temp)
 #   }
-#   
+#
 #   frame$mz_diff <- mz_diff[is_keep]
-#   
+#
 #   if (nrow(frame) == 0) {
 #     return(NULL)
 #   }
-#   
+#
 #   dups <- frame$scan[duplicated(frame$scan)]
-#   
+#
 #   if (length(dups) > 0) {
 #     idx_remove <- lapply(dups, function(scan) {
 #       idx <- which(frame$scan == scan)
@@ -738,7 +738,7 @@
 #     })
 #     frame <- frame[-unlist(idx_remove), , drop = FALSE]
 #   }
-#   
+#
 #   new_temp <- data.frame(new_scan = names(temp), intensity = temp)
 #   idx <- match(new_temp$new_scan, frame$scan)
 #   new_temp$mz <- frame$mz[idx]
@@ -765,9 +765,9 @@
 #   cl <- parallel::makeCluster(12L)
 #   eims <- parallel::parLapply(scan_list, function(scan, mz, mz_tol) {
 #     eim <- .get_frame_data4(scan, mz, mz_tol)
-#   }, 
-#   cl = cl, 
-#   mz = mz, 
+#   },
+#   cl = cl,
+#   mz = mz,
 #   mz_tol = mz_tol)
 #   parallel::stopCluster(cl)
 #   res <- data.frame(do.call(rbind, eims), check.names = FALSE)
@@ -785,11 +785,103 @@
   # if (nrow(scan) == 0 | all(scan$intensity == 0)) {
   #   return(NULL)
   # }
-  # 
+  #
   # scan$mz_diff <- mz_diff[is_keep]
-  # 
+  #
   # if (length(nrow(scan)) > 0) {
   #   scan <- scan[which.min(scan$mz_diff)[1], , drop = FALSE]
   # }
   # return(scan)
+}
+
+
+.match_res <- function(table_1,
+                      table_2,
+                      mz_tol_ppm = 20,
+                      res_define_at = 200,
+                      ccs_tol = 0.03){
+  # table_1 <- lct1
+  # table_2 <- lct2
+
+  info_col <- intersect(colnames(table_1),
+                        colnames(table_2))
+
+  table_1_info <- table_1[, info_col]
+  table_2_info <- table_2[, info_col]
+
+  temp_mz_tol <- .ppm2dalton2(mz = table_1$mz,
+                              ppm = mz_tol_ppm,
+                              res_define_at = res_define_at)
+
+
+  mz_low_all <- table_1_info$mz - temp_mz_tol
+  mz_up_all <- table_1_info$mz + temp_mz_tol
+  ccs_low_all <- table_1_info$ccs*(1 - ccs_tol)
+  ccs_up_all <- table_1_info$ccs*(1 + ccs_tol)
+
+  res_list <- list()
+  table_1_not_match <- list()
+
+
+
+  temp_res <- lapply(seq(nrow(table_1_info)), function(i){
+
+    # cat(i, '\t')
+    # temp_mz <- table_1$mz[i]
+    # temp_ccs <- table_1$ccs[i]
+
+
+    mz_low <- mz_low_all[i]
+    mz_up <- mz_up_all[i]
+    ccs_low <- ccs_low_all[i]
+    ccs_up <- ccs_up_all[i]
+
+
+
+    idx_final <- which(table_2_info$mz >= mz_low & table_2_info$mz <=  mz_up &
+                         table_2_info$ccs >= ccs_low & table_2_info$ccs <= ccs_up )[1]
+    # cat(idx_final, '\t')
+    if(!is.na(idx_final)){
+      res_list[[length(res_list) + 1]] <<- list(table_1_info[i,],
+                                                table_2_info[idx_final, ])
+      table_2_info <<- table_2_info[-idx_final, ]
+
+    }else{
+      # browser()
+      table_1_not_match[[length(table_1_not_match) + 1]] <<- table_1_info[i,]
+    }
+
+    return(NULL)
+
+  })
+
+
+  final_res <- list()
+
+  # info_col <- intersect(colnames(table_1),
+  #                       colnames(table_2))
+
+  match_res <- lapply(res_list, function(ls){
+    # browser()
+    # ls <- res_list[[1]]
+    cbind(ls[[1]],
+          table_1[match(ls[[1]]$name, table_1$name),
+                  -match(info_col, colnames(table_1))],
+          table_2[match(ls[[2]]$name, table_2$name),
+                  -match(info_col, colnames(table_2))])
+  })
+  match_res <- do.call(rbind, match_res)
+
+  final_res$match_res <- match_res
+  final_res$table_1_not_match <- do.call(rbind, table_1_not_match) # table_1_not_match
+  final_res$table_1_not_match <- table_1[match(final_res$table_1_not_match$name, table_1$name), ]
+  final_res$table_2_not_match <- table_2[match(table_2_info$name, table_2$name), ]
+  # final_res$all_feature <- final_res$match_res
+
+  temp_res <- rbind.fill(final_res$match_res,
+                         final_res$table_2_not_match,
+                         final_res$table_1_not_match)
+  final_res$all_feature <- temp_res
+  return(final_res)
+
 }

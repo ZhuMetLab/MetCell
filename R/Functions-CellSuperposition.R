@@ -9,6 +9,7 @@
   intensity_abs_threshold_upper,
   intensity_abs_threshold_lower,
   marker_eic_peak_span,
+  select_true_cell,
   res_define_at = 200,
   pool_size = 2000L,
   overlaps = 2L,
@@ -22,8 +23,10 @@
 
   time_limit_table_load <- read.csv(time_limit_table,
                                     stringsAsFactors = FALSE)
-  idx <- match(basename(data_file),
-               time_limit_table_load$data_file)
+  # idx <- match(basename(data_file),
+  #              time_limit_table_load$data_file)
+
+  idx <- which(time_limit_table_load$data_file == basename(data_file))
 
   start_time <- time_limit_table_load$start_time[idx]
   end_time <- time_limit_table_load$end_time[idx]
@@ -35,9 +38,22 @@
   }
   frame_id <- opentimsr::table2df(D, 'Frames')$Frames
   ms1_frame_info <- frame_id[frame_id$MsMsType == 0, c("Id", "Time")]
-  ms1_frame_info <- ms1_frame_info[ms1_frame_info$Time >= start_time &
-                                     ms1_frame_info$Time <= end_time,]
+
+  targted_index <- c()
+  for(i_time_seg in seq_along(start_time)){
+    temp_start <- start_time[i_time_seg]
+    temp_end <- end_time[i_time_seg]
+    temp_index <- which(ms1_frame_info$Time >= temp_start &
+                             ms1_frame_info$Time <= temp_end)
+    targted_index <- c(targted_index, temp_index)
+    rm(temp_index, temp_start, temp_end)
+  }
+
+  # ms1_frame_info <- ms1_frame_info[ms1_frame_info$Time >= start_time &
+  #                                    ms1_frame_info$Time <= end_time,]
   # browser()
+  ms1_frame_info <- ms1_frame_info[targted_index, ]
+
 
   all_mobility <- opentimsr::get_inv_ion_mobilities(D, ms1_frame_info$Id[1])
 
@@ -49,19 +65,35 @@
   # all_frames <- unlist(BiocParallel::bplapply(1:nrow(frame_idxs), function(irow) {
   all_frames <- unlist(pbapply::pbapply(frame_idxs, 1, function(dr) {
     dt <- opentimsr::query(D, frames = ids[dr[1]:dr[2]], columns = c("frame", "scan", "mz", "intensity"))
+    n_false <- as.integer(length(dr[1]:dr[2])/length(ids) * 1000)
     frames <- collapse::rsplit(dt, dt$frame, cols = 2:4)
 
-    .discover_sc_events(frames,
-                        all_mobility,
-                        marker_mz,
-                        marker_mobility,
-                        mz_tolerance_ppm,
-                        mobility_range,
-                        intensity_abs_threshold_upper,
-                        intensity_abs_threshold_lower,
-                        marker_eic_peak_span,
-                        res_define_at)
-  }), recursive = FALSE)
+  #   .discover_sc_events(frames,
+  #                       all_mobility,
+  #                       marker_mz,
+  #                       marker_mobility,
+  #                       mz_tolerance_ppm,
+  #                       mobility_range,
+  #                       intensity_abs_threshold_upper,
+  #                       intensity_abs_threshold_lower,
+  #                       marker_eic_peak_span,
+  #                       res_define_at)
+  # }), recursive = FALSE)
+
+    .discover_sc_events_multiple_marker(frames,
+                                        all_mobility,
+                                        marker_mz,
+                                        marker_mobility,
+                                        mz_tolerance_ppm,
+                                        mobility_range,
+                                        intensity_abs_threshold_upper,
+                                        intensity_abs_threshold_lower,
+                                        marker_eic_peak_span,
+                                        select_true_cell,
+                                        n_false,
+                                        res_define_at)
+}), recursive = FALSE)
+
   # },BPPARAM = BiocParallel::bpparam()), recursive = FALSE)
 
   # all_frames <- pbapply::pblapply(ms1_frame_info$Id, function(frame) {
@@ -172,6 +204,87 @@
 
   # table(temp_intensity$sc)
   return(data[temp_intensity$sc])
+}
+
+
+
+.discover_sc_events_multiple_marker <- function(
+    data,
+    all_mobility,
+    marker_mz,
+    marker_mobility,
+    mz_tolerance_ppm,
+    mobility_range,
+    intensity_abs_threshold_upper,
+    intensity_abs_threshold_lower,
+    marker_eic_peak_span,
+    select_true_cell,
+    n_false,
+    res_define_at = 200,
+    ...
+) {
+  # integrate intensity of the marker in each frame #
+  all_res <- lapply(seq_along(marker_mz), function(ppp){
+    temp_marker_mz <- marker_mz[ppp]
+    temp_marker_mobility <- marker_mobility[ppp]
+    temp_mz_tolerance_ppm <- mz_tolerance_ppm[ppp]
+    temp_mobility_range <- mobility_range[ppp]
+    temp_intensity_abs_threshold_upper <- intensity_abs_threshold_upper[ppp]
+    temp_intensity_abs_threshold_lower <- intensity_abs_threshold_lower[ppp]
+    temp_marker_eic_peak_span <- marker_eic_peak_span[ppp]
+
+    mz_tol <- .ppm2dalton(temp_marker_mz, temp_mz_tolerance_ppm, res_define_at)
+    temp_intensity <- lapply(seq_along(data), function(i) {
+      temp_ions <- .get_eims2(data[i],
+                              all_mobility, temp_marker_mz, mz_tol,
+                              temp_marker_mobility, temp_mobility_range)
+      data.frame(frame_index = names(data)[i],
+                 marker_intensity = sum(temp_ions[, 1]))
+    })
+
+    temp_intensity <- do.call(rbind, temp_intensity)
+
+    # idx <- which(temp_intensity$marker_intensity >= intensity_abs_threshold_lower &
+    #                temp_intensity$marker_intensity <= intensity_abs_threshold_upper)
+
+    temp_intensity$sc <- FALSE
+    temp_intensity$sc[ggpmisc:::find_peaks(temp_intensity$marker_intensity, span = temp_marker_eic_peak_span) &
+                        temp_intensity$marker_intensity >= temp_intensity_abs_threshold_lower &
+                        temp_intensity$marker_intensity <= temp_intensity_abs_threshold_upper] <- TRUE
+    temp_intensity$sc[1] <- FALSE
+    temp_intensity$sc[nrow(temp_intensity)] <- FALSE
+
+    return(temp_intensity$sc)
+  })
+
+  # browser()
+
+  if(select_true_cell){
+
+    if(length(all_res) == 1){
+      return(data[all_res[[1]]])
+    }else{
+      sc_all <- apply((do.call(rbind, all_res)), 2, all)
+      return(data[sc_all])
+    }
+
+  }else{
+
+    if(length(all_res) == 1){
+      temp_idx_true <- which(all_res[[1]])
+      temp_data_final <- data[-temp_idx_true]
+      set.seed(123)
+      fale_idx <- sample(seq(length(temp_data_final)), n_false, replace = FALSE)
+      return(temp_data_final[fale_idx])
+    }else{
+      sc_all <- apply((do.call(rbind, all_res)), 2, all)
+      temp_idx_true <- which(sc_all)
+      temp_data_final <- data[-temp_idx_true]
+      set.seed(123)
+      fale_idx <- sample(seq(length(temp_data_final)), n_false, replace = FALSE)
+      return(temp_data_final[fale_idx])
+    }
+  }
 }
 
 
@@ -684,7 +797,12 @@
   # other_col <- colnames(object@features)[which(colnames(object@features) %in% row.names(object@sample_groups))]
 
   # colnames(lib_data)[7:11] <- c('[M+H]+', '[M+Na]+', '[M+NH4]+', '[M-H]-', '[M+HCOO]-')
-  colnames(lib_data)[19:25] <- c('[M+H]+', '[M+Na]+', '[M+NH4]+', '[M-H2O+H]+', '[M-H]-', '[M+Na-2H]-', '[M+HCOO]-')
+  if(!ncol(lib_data) == 13){
+    colnames(lib_data)[19:25] <- c('[M+H]+', '[M+Na]+', '[M+NH4]+', '[M-H2O+H]+', '[M-H]-', '[M+Na-2H]-', '[M+HCOO]-')
+  }else{
+    colnames(lib_data)[7:13] <- c('[M+H]+', '[M+Na]+', '[M+NH4]+', '[M-H2O+H]+', '[M-H]-', '[M+Na-2H]-', '[M+HCOO]-')
+  }
+
 
   adducts <- adduct_table$name
 

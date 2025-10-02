@@ -92,7 +92,7 @@
 #' @export
 Experiment <- function(
   wd = ".",
-  experiment_type = c("DDA", "DIA", 'SingleCell'),
+  experiment_type = c("DDA", "DIA", 'SingleCell', 'SingleCellLipidomics'),
   injection_order = NULL,
   ion_mode = c("positive", "negative"),
   res_dir = "results",

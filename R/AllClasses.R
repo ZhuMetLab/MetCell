@@ -348,7 +348,8 @@ setClass("DiscoverSCEventsParam",
            mobility_range = 'numeric',
            intensity_abs_threshold_upper = 'nullOrNumeric',
            intensity_abs_threshold_lower = 'nullOrNumeric',
-           marker_eic_peak_span = 'numeric'
+           marker_eic_peak_span = 'numeric',
+           select_true_cell = 'logical'
          ),
          contains = "MetCellParam"
 )
@@ -458,6 +459,11 @@ setClass("DetectEIMPeaksParam",
            single_charge_line_slope = "numeric",
            single_charge_line_intercept = "numeric",
            skip_invalid_peaks = "logical",
+           blank_peak_file = 'nullOrCharacter',
+           mz_tol_match_blank = 'nullOrNumeric',
+           res_define_at = 'nullOrNumeric',
+           ccs_tol_match_blank = 'nullOrNumeric',
+           intensity_threshold = "nullOrNumeric",
            rerun = "logical"
          ),
          contains = "MetCellParam"
@@ -537,6 +543,11 @@ setClass("DIAExperiment",
 
 #' @export
 setClass("SingleCellExperiment",
+         contains = "Experiment"
+)
+
+#' @export
+setClass("SingleCellLipidomicsExperiment",
          contains = "Experiment"
 )
 

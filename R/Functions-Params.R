@@ -840,7 +840,8 @@ DiscoverSCEventsParam <- function(
   mobility_range = 0.015,
   intensity_abs_threshold_upper = NULL,
   intensity_abs_threshold_lower = NULL,
-  marker_eic_peak_span = 5
+  marker_eic_peak_span = 5,
+  select_true_cell = TRUE
 ) {
   return(new("DiscoverSCEventsParam",
              marker_mz = marker_mz,
@@ -849,7 +850,8 @@ DiscoverSCEventsParam <- function(
              mobility_range = mobility_range,
              intensity_abs_threshold_upper = intensity_abs_threshold_upper,
              intensity_abs_threshold_lower = intensity_abs_threshold_lower,
-             marker_eic_peak_span = marker_eic_peak_span
+             marker_eic_peak_span = marker_eic_peak_span,
+             select_true_cell = select_true_cell
   ))
 }
 
@@ -924,6 +926,11 @@ DetectEIMPeaksParam <- function(
   single_charge_line_slope = 0.001,
   single_charge_line_intercept = 0.35,
   skip_invalid_peaks = TRUE,
+  blank_peak_file = NULL,
+  mz_tol_match_blank = 5,
+  res_define_at = 200,
+  ccs_tol_match_blank = 0.01,
+  intensity_threshold = 3,
   rerun = FALSE
 ) {
   new("DetectEIMPeaksParam",
@@ -934,6 +941,11 @@ DetectEIMPeaksParam <- function(
       single_charge_line_slope = single_charge_line_slope,
       single_charge_line_intercept = single_charge_line_intercept,
       skip_invalid_peaks = skip_invalid_peaks,
+      blank_peak_file = blank_peak_file,
+      mz_tol_match_blank = mz_tol_match_blank,
+      res_define_at = res_define_at,
+      ccs_tol_match_blank = ccs_tol_match_blank,
+      intensity_threshold = intensity_threshold,
       rerun = rerun)
 }
 
